@@ -2,7 +2,7 @@
 module Pipes.Bgzf where
 
 import Data.Streaming.Zlib.Lowlevel
-import Data.Streaming.Zlib (ZlibException (..), defaultWindowBits)
+import Data.Streaming.Zlib (ZlibException (..), WindowBits(..))
 import Foreign.Ptr
 import Foreign.ForeignPtr
 import Foreign.C.Types
@@ -16,10 +16,10 @@ foreign import ccall unsafe "streaming_commons_free_z_stream_inflate"
 
 bgzfBlockSize = 65536
 
-inflateBlock :: ByteString -> ByteString
+inflateBlock :: ByteString -> (ByteString, CInt)
 inflateBlock bs = unsafePerformIO $ do
     zstr <- zstreamNew
-    inflateInit2 zstr defaultWindowBits
+    inflateInit2 zstr (WindowBits (-15))
     fp <- mallocByteString bgzfBlockSize
     withForeignPtr fp $ \p -> do
         let buff = castPtr p
@@ -30,5 +30,4 @@ inflateBlock bs = unsafePerformIO $ do
             avail <- c_get_avail_out zstr
             freeZstream zstr
             let size = bgzfBlockSize - fromIntegral avail
-            return $ PS fp 0 size
-
+            return (PS fp 0 size, res)
