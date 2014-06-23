@@ -1,7 +1,8 @@
 {-# LANGUAGE ForeignFunctionInterface, RankNTypes, OverloadedStrings #-}
 module Pipes.Bgzf (
     inflateBlock,
-    bgzfPipe ) where
+    bgzfPipe,
+    bgzfMultiPipe ) where
 
 import Data.Streaming.Zlib.Lowlevel
 import Data.Streaming.Zlib (ZlibException (..), WindowBits(..))
@@ -10,6 +11,8 @@ import Foreign.Storable
 import Foreign.ForeignPtr
 import Foreign.C.Types
 import Data.ByteString.Internal
+import Control.Parallel.Strategies
+import Control.Monad
 import System.IO
 import System.IO.Unsafe
 import qualified Data.ByteString as B
@@ -35,7 +38,7 @@ inflateBlock bs = unsafePerformIO $ do
             avail <- c_get_avail_out zstr
             freeZstream zstr
             let size = bgzfBlockSize - fromIntegral avail
-            return $ PS fp 0 size
+            size `seq` return $ PS fp 0 size
 
 parseHeader :: ByteString -> Int
 parseHeader bs = unsafePerformIO $ unsafeUseAsCString bs $ \p -> do
@@ -54,3 +57,17 @@ bgzfPipe hdl = go where
                 chunk <- liftIO $ B.hGet hdl (blocklen - 18)
                 yield $ inflateBlock chunk
                 go
+
+bgzfMultiPipe :: MonadIO m => [Handle] -> Producer' [ByteString] m ()
+bgzfMultiPipe hdls = go where
+    go = do
+        mbchunk <- forM hdls $ \h -> do
+            header <- liftIO $ B.hGet h 18
+            case parseHeader header of
+                28 -> return Nothing
+                blocklen -> do
+                    chunk <- liftIO $ B.hGet h (blocklen - 18)
+                    return $ Just chunk
+        case sequence (mbchunk `using` evalList rseq) of
+            Nothing -> return ()
+            Just l -> yield (parMap rpar inflateBlock l) >> go
