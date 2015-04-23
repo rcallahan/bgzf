@@ -68,6 +68,6 @@ bgzfMultiPipe hdls = go where
                 blocklen -> do
                     chunk <- liftIO $ B.hGet h (blocklen - 18)
                     return $ Just chunk
-        case sequence (mbchunk `using` evalList rseq) of
+        case sequence (mbchunk `using` parList rpar) of
             Nothing -> return ()
             Just l -> yield (parMap rpar inflateBlock l) >> go
