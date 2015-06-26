@@ -7,7 +7,7 @@ description:         Bgzf consists of 64kb maximum sized gzip blocks, and can be
 author:              Rob O'Callahan
 maintainer:          ropoctl@gmail.com
 copyright:           2014-2015
-category:            Codec
+category:            Codec, Pipes
 build-type:          Simple
 cabal-version:       >=1.10
 
