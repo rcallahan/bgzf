@@ -1,6 +1,7 @@
 {-# LANGUAGE ForeignFunctionInterface, RankNTypes, OverloadedStrings #-}
 module Pipes.Bgzf (
     inflateBlock,
+    parseHeader,
     bgzfPipe,
     bgzfMultiPipe ) where
 
